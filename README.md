@@ -2,6 +2,7 @@
 
 > **Version 2026, vérifiée marché.** Document de cadrage et guide d'exécution étape par étape.
 > Auteur : Saad Agoumi — IMT Atlantique — cible : stage de fin d'études (avril 2027) puis CDI en pentest / sécurité offensive.
+> Repo GitHub : `pentest-ad-entraid-hybride-2026`
 
 ---
 
@@ -199,13 +200,14 @@ Ton PFE démarre **le 1er avril 2027**. Les candidatures PFE des grands cabinets
 **Étapes / techniques :**
 1. **Device code phishing** (abus du flow OAuth device code pour voler des tokens).
 2. **Vol de PRT** (Primary Refresh Token) sur un poste hybrid-joined.
-3. **Abus du compte de synchronisation AAD Connect** (le compte MSOL/sync, qui a souvent des droits **DCSync**) → pivot cloud → on-prem.
-4. **Contournement de Conditional Access** (named locations, device compliance).
-5. **Abus d'App Registrations / Service Principals** sur-privilégiés (permissions Graph API excessives).
+3. **Abus du compte de synchronisation AAD Connect** (le compte MSOL/sync, qui a souvent des droits **DCSync**) → pivot **on-prem → cloud**.
+4. **Cloud Kerberos Trust attack (bonus 2026, la plus récente — pivot dans le sens INVERSE, cloud → on-prem).** Recherche publiée par Dirk-jan Mollema (auteur de ROADtools) en juillet 2026 : un Global Admin Entra ID réécrit le SID on-prem d'un utilisateur hybride pour usurper le compte de sync MSOL_ (celui à droits DCSync), demande un "Partial TGT" depuis Entra ID, qu'un DC on-prem complète en TGT valide → DCSync → tous les hashes du domaine. **Non patché** — Microsoft considère que c'est le modèle de confiance fonctionnant "comme prévu" (Global Admin cloud = équivalent Domain Admin on-prem, par design). Démontrable dès aujourd'hui, sans DC vieilli exprès (contrairement à BadSuccessor).
+5. **Contournement de Conditional Access** (named locations, device compliance).
+6. **Abus d'App Registrations / Service Principals** sur-privilégiés (permissions Graph API excessives).
 
 **Outils :** **ROADtools** (ROADrecon), **TokenTactics**, **AADInternals**.
 
-**Livrable :** `attack-writeups/06-entra-id-hybride.md` — une démo de pivot on-prem → cloud (ou l'inverse). C'est la démo qui colle exactement à ce que testent Wavestone et Orange Cyberdefense en mission.
+**Livrable :** `attack-writeups/06-entra-id-hybride.md` — une démo de pivot **dans les deux sens** (on-prem → cloud via AAD Connect, ET cloud → on-prem via Cloud Kerberos Trust). C'est ce double pivot qui colle exactement à ce que testent Wavestone et Orange Cyberdefense en mission, et qui montre que tu suis la recherche jusqu'à juillet 2026 — plus récent que BadSuccessor (DEF CON 2025).
 
 ---
 
