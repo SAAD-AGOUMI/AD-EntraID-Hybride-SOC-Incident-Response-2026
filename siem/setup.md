@@ -7,11 +7,13 @@
 ## 1. Architecture
 
 ```
-DC01 (kingslanding, 192.168.56.10)
-  Sysmon (config Olaf Hartong — sysmon-modular)
+DC01 (kingslanding, 192.168.56.10)   ─┐
+DC02 (winterfell, 192.168.56.11)     ─┤
+SRV02 (castelblack, 192.168.56.22)   ─┤  Sysmon (config Olaf Hartong — sysmon-modular)
+DC03 (192.168.56.30)                 ─┘  + agent Wazuh (WazuhSvc), lit le canal
+                                          Microsoft-Windows-Sysmon/Operational
+                                          + Application / Security / System (eventchannel)
         │
-        │ agent Wazuh (WazuhSvc), lit le canal Microsoft-Windows-Sysmon/Operational
-        │ + Application / Security / System (eventchannel)
         ▼
 wazuh-manager (VM Ubuntu dédiée, 192.168.56.40)
   ├── wazuh-indexer   (stockage des événements)
@@ -20,6 +22,8 @@ wazuh-manager (VM Ubuntu dédiée, 192.168.56.40)
 ```
 
 Le manager est **hors GOAD-Light**, sur son propre segment (même réseau VMnet2 que les DC, mais VM indépendante) — pas de dépendance Docker/WSL2, pour éviter les problèmes réseau déjà rencontrés avec la VM CONNECTOR (Entra Connect).
+
+**Les 4 machines du lab sont toutes instrumentées** : validation initiale sur DC01 seul, puis extension à DC02, SRV02 et DC03 une fois la chaîne confirmée fonctionnelle — plutôt que d'attendre un besoin module par module, les modules d'attaque suivants touchant plusieurs machines à la fois (et DC03 en ayant de toute façon besoin pour le module BadSuccessor).
 
 ---
 
@@ -73,87 +77,79 @@ You can access the web interface https://192.168.56.40:443
 
 **Persistance** : les trois services (`wazuh-indexer`, `wazuh-manager`, `wazuh-dashboard`) sont activés (`enabled`) au démarrage — aucune commande à relancer après un redémarrage de la VM.
 
-**Vérification** — vue d'ensemble du dashboard une fois l'agent DC01 enrôlé (voir §4) :
+**Vérification** — vue d'ensemble du dashboard, les 4 agents actifs :
 
-![Vue d'ensemble du dashboard avec l'agent DC01 actif](screenshots/overview-agent-active.png)
+![Vue d'ensemble du dashboard avec les 4 agents actifs](screenshots/overview-agents-active.png)
 
 ---
 
-## 4. Déploiement de l'agent Wazuh sur DC01
+## 4. Déploiement de l'agent Wazuh + Sysmon — procédure commune
 
-Pour l'instant, l'agent est déployé **sur DC01 uniquement** — les autres machines du lab (DC02, DC03, SRV02) seront instrumentées seulement si un module d'attaque futur l'exige spécifiquement, plutôt que de généraliser le déploiement dès maintenant.
+La même procédure a été appliquée sur **DC01, DC02, SRV02 et DC03**, dans cet ordre (DC01 pour valider la chaîne complète en premier, puis généralisation).
 
-**Depuis le dashboard** (`Endpoints → Deploy new agent`) :
+### 4.1 Enregistrer l'agent depuis le dashboard
+
+`Endpoints → Deploy new agent` :
 - Package : **MSI 32/64 bits**
 - Server address : `192.168.56.40`
-- Agent name : `DC01_agent`
+- Agent name : `DC01_agent` (puis `DC02_agent`, `SRV02_agent`, `DC03_agent`)
 - Groupe : `Default`
 
-**Commandes générées et exécutées sur DC01 (PowerShell admin) :**
+### 4.2 Installer le VC++ Redistributable (préventif)
+
 ```powershell
-Invoke-WebRequest -Uri https://packages.wazuh.com/4.x/windows/wazuh-agent-4.14.7-1.msi -OutFile $env:tmp\wazuh-agent
-msiexec.exe /i $env:tmp\wazuh-agent /q WAZUH_MANAGER='192.168.56.40' WAZUH_AGENT_NAME='DC01_agent'
-NET START Wazuh
+Invoke-WebRequest -Uri https://aka.ms/vs/17/release/vc_redist.x64.exe -OutFile $env:tmp\vc_redist.x64.exe
+Start-Process -FilePath $env:tmp\vc_redist.x64.exe -ArgumentList "/install", "/quiet", "/norestart" -Wait
 ```
 
-### Incident rencontré et résolu
+#### Incident rencontré (sur DC01, corrigé en préventif sur les suivantes)
 
-Le service `WazuhSvc` refusait de démarrer (`System error 1067`). Diagnostic via le journal d'événements Windows (`Get-WinEvent -LogName Application`) :
-
+Le service `WazuhSvc` refusait de démarrer (`System error 1067`) faute de ce Redistributable. Diagnostic via le journal d'événements Windows :
 ```
 Faulting application name: wazuh-agent.exe
 Faulting module name: KERNELBASE.dll
 Exception code: 0xc06d007e
 ```
+**Cause :** dépendances manquantes (`libwazuhext.dll`, `libstdc++-6.dll`) sur ces images Windows Server 2019/2025. En installant le Redistributable **avant** l'agent sur DC02/SRV02/DC03, l'incident ne s'est pas reproduit.
 
-**Cause :** absence du Visual C++ Redistributable requis par les bibliothèques de l'agent (`libwazuhext.dll`, `libstdc++-6.dll`) sur cette image Windows Server 2019.
+### 4.3 Installer et démarrer l'agent Wazuh
 
-**Correctif :**
 ```powershell
-Invoke-WebRequest -Uri https://aka.ms/vs/17/release/vc_redist.x64.exe -OutFile $env:tmp\vc_redist.x64.exe
-Start-Process -FilePath $env:tmp\vc_redist.x64.exe -ArgumentList "/install", "/quiet", "/norestart" -Wait
+Invoke-WebRequest -Uri https://packages.wazuh.com/4.x/windows/wazuh-agent-4.14.7-1.msi -OutFile $env:tmp\wazuh-agent
+msiexec.exe /i $env:tmp\wazuh-agent /q WAZUH_MANAGER='192.168.56.40' WAZUH_AGENT_NAME='DC01_agent'
 NET START Wazuh
 ```
-
-Après installation du Redistributable, le service démarre normalement. DC01_agent apparaît **Active** dans le dashboard, IP `192.168.56.10` correctement détectée, OS identifié automatiquement :
-
-![Détail de l'agent DC01 actif dans Endpoints](screenshots/endpoints-dc01-active.png)
-
----
-
-## 5. Installation de Sysmon + config Olaf Hartong sur DC01
-
-**Choix de config** : Olaf Hartong (sysmon-modular) plutôt que SwiftOnSecurity — structurée par technique MITRE ATT&CK, orientée détection d'attaques AD (Kerberoasting, DCSync, création de comptes suspects), alignée avec les modules d'attaque du projet.
-
-**Commandes (PowerShell admin, sur DC01) :**
+Vérification :
 ```powershell
-# Télécharger Sysmon (Sysinternals)
+Get-Service Wazuh
+```
+
+### 4.4 Installer Sysmon avec la config Olaf Hartong
+
+```powershell
 Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Sysmon.zip" -OutFile "$env:tmp\Sysmon.zip"
 Expand-Archive -Path "$env:tmp\Sysmon.zip" -DestinationPath "$env:tmp\Sysmon" -Force
 
-# Télécharger la config Olaf Hartong (asset de release, pas le repo brut)
 Invoke-WebRequest -Uri "https://github.com/olafhartong/sysmon-modular/releases/latest/download/sysmonconfig.xml" -OutFile "$env:tmp\sysmonconfig.xml"
 
-# Installer Sysmon avec cette configuration
 & "$env:tmp\Sysmon\Sysmon64.exe" -accepteula -i "$env:tmp\sysmonconfig.xml"
 ```
+> Note : le fichier `sysmonconfig.xml` n'est plus servi à la racine du dépôt GitHub olafhartong/sysmon-modular — il faut passer par l'URL de release (`/releases/latest/download/...`).
 
-> Note : le fichier `sysmonconfig.xml` n'est plus servi à la racine du dépôt GitHub — il faut passer par l'URL de release (`/releases/latest/download/...`).
-
-Résultat : profil "Balanced", schéma de config 4.91, service `Sysmon64` démarré. Vérification immédiate des événements côté DC01 :
+Vérification (chaque événement est annoté d'un `RuleName` avec l'ID MITRE ATT&CK correspondant) :
 ```powershell
 Get-WinEvent -LogName "Microsoft-Windows-Sysmon/Operational" -MaxEvents 5
 ```
-Chaque événement est déjà annoté par un `RuleName` contenant l'ID MITRE ATT&CK correspondant (ex. `technique_id=T1574.010,technique_name=Services File Permissions Weakness`) :
 
-![Événements Sysmon bruts sur DC01, annotés MITRE ATT&CK](screenshots/dc01-sysmon-events.png)
+![Événements Sysmon bruts, annotés MITRE ATT&CK](screenshots/dc01-sysmon-events.png)
 
----
+### 4.5 Faire lire le canal Sysmon par l'agent Wazuh
 
-## 6. Faire lire le canal Sysmon par l'agent Wazuh
+Par défaut, `ossec.conf` ne surveille pas le canal Sysmon. Ajout manuel d'un bloc `<localfile>`, entre les blocs existants `System` et `active-response` :
 
-Par défaut, `ossec.conf` ne surveille pas le canal Sysmon. Ajout manuel d'un bloc `<localfile>` dans `C:\Program Files (x86)\ossec-agent\ossec.conf`, entre les blocs existants `System` et `active-response` :
-
+```powershell
+notepad "C:\Program Files (x86)\ossec-agent\ossec.conf"
+```
 ```xml
 <localfile>
   <location>Microsoft-Windows-Sysmon/Operational</location>
@@ -171,9 +167,39 @@ NET START Wazuh
 
 ---
 
-## 7. Vérification finale
+## 5. Cas particulier — DC03 (isolée du réseau, sans accès Internet)
 
-Dans le dashboard Wazuh (**Threat Hunting → Events**, filtré sur `agent.name:DC01_agent` puis `rule.groups: sysmon`) :
+DC03 est délibérément maintenue **hors ligne** (carte réseau uniquement sur VMnet2, aucune carte NAT) pour rester un DC Windows Server 2025 non patché, prérequis du module BadSuccessor — toute connexion Internet risquerait de déclencher Windows Update automatiquement (incident déjà rencontré et documenté dans `infra/README.md`).
+
+Les 4.2 à 4.4 nécessitent donc un **transfert manuel des fichiers**, plutôt que les `Invoke-WebRequest` habituels :
+
+1. Sur la machine hôte (ou WSL2), télécharger les 4 fichiers :
+   - `vc_redist.x64.exe`
+   - `wazuh-agent-4.14.7-1.msi`
+   - `Sysmon.zip`
+   - `sysmonconfig.xml`
+2. Les transférer vers DC03 via le presse-papiers partagé VMware, un dossier partagé, ou glisser-déposer dans la fenêtre de la VM.
+3. Adapter chaque commande pour pointer sur le fichier local plutôt que de le télécharger, par exemple :
+   ```powershell
+   Start-Process -FilePath "C:\Users\vagrant.SEVENKINGDOMS\Downloads\VC_redist.x64.exe" -ArgumentList "/install", "/quiet", "/norestart" -Wait
+   msiexec.exe /i "C:\Users\vagrant.SEVENKINGDOMS\Downloads\wazuh-agent-4.14.7-1.msi" /q WAZUH_MANAGER='192.168.56.40' WAZUH_AGENT_NAME='DC03_agent'
+   NET START Wazuh
+   Expand-Archive -Path "C:\Users\vagrant.SEVENKINGDOMS\Downloads\Sysmon.zip" -DestinationPath "C:\Users\vagrant.SEVENKINGDOMS\Downloads\Sysmon" -Force
+   & "C:\Users\vagrant.SEVENKINGDOMS\Downloads\Sysmon\Sysmon64.exe" -accepteula -i "C:\Users\vagrant.SEVENKINGDOMS\Downloads\sysmonconfig.xml"
+   ```
+4. Étape 4.5 (édition de `ossec.conf`) inchangée.
+
+DC03_agent est actif et remonte des événements Sysmon, confirmé sans jamais avoir exposé la machine à Internet. Snapshot pris immédiatement après (`dc03-win2025-unpatched-1742-wazuh-sysmon-active`).
+
+---
+
+## 6. Vérification finale
+
+Dans le dashboard Wazuh (**Endpoints**), les 4 agents apparaissent **Active** :
+
+![Détail des 4 agents actifs dans Endpoints](screenshots/endpoints-all-agents-active.png)
+
+Dans **Threat Hunting → Events**, filtré sur un agent puis `rule.groups: sysmon` :
 
 ![Alertes Sysmon dans Threat Hunting](screenshots/threat-hunting-sysmon-groups.png)
 
@@ -181,15 +207,15 @@ Détail d'une alerte Sysmon ouverte (`data.win.system.channel = Microsoft-Window
 
 ![Détail complet d'une alerte Sysmon](screenshots/alerte-sysmon-detail.png)
 
-La chaîne complète **Sysmon (Olaf Hartong) → agent Wazuh → manager → dashboard** est validée de bout en bout sur DC01.
+La chaîne complète **Sysmon (Olaf Hartong) → agent Wazuh → manager → dashboard** est validée de bout en bout sur les 4 machines du lab.
 
 ---
 
-## 8. État actuel / prochaines étapes
+## 7. État actuel / prochaines étapes
 
 - ✅ Manager Wazuh opérationnel (all-in-one), démarrage automatique au boot.
-- ✅ Agent + Sysmon opérationnels sur DC01, remontée confirmée dans le dashboard.
-- ⬜ DC02, DC03, SRV02 : pas encore instrumentés — à faire seulement si un module d'attaque futur le nécessite sur ces machines spécifiquement.
-- ⬜ Règles de détection personnalisées (`local_rules.xml`) : pas encore nécessaires, seront écrites au fil des modules d'attaque (à partir du Module 4 — ADCS) quand une technique n'a pas d'alerte par défaut dans le ruleset standard.
+- ✅ Agent + Sysmon opérationnels sur **DC01, DC02, SRV02 et DC03**, remontée confirmée dans le dashboard pour les 4.
+- ✅ DC03 instrumentée sans jamais exposer la machine à Internet (transfert manuel des fichiers).
+- ⬜ Règles de détection personnalisées (`local_rules.xml`) : pas encore nécessaires, seront écrites au fil des modules d'attaque (à partir du module 4 — ADCS) quand une technique n'a pas d'alerte par défaut dans le ruleset standard.
 
-Snapshots VMware pris à chaque étape stable : `clean-ubuntu-22.04-pre-wazuh-install`, `wazuh-installed-working` (VM manager), `dc01-wazuh-agent-installed` (avant ajout de Sysmon).
+Snapshots VMware pris à chaque étape stable : `clean-ubuntu-22.04-pre-wazuh-install`, `wazuh-installed-working` (VM manager), `dc01-wazuh-agent-installed`, `dc03-win2025-unpatched-1742-wazuh-sysmon-active`.

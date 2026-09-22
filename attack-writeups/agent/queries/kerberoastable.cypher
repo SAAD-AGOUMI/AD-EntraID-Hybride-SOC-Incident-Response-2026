@@ -1,0 +1,1 @@
+MATCH (u:User {hasspn:true}) RETURN u

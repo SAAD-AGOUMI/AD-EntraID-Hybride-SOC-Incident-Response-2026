@@ -1,0 +1,1 @@
+MATCH (u {name:"MSOL_0EFC2CA2FA7B@SEVENKINGDOMS.LOCAL"})-[r:GetChanges|GetChangesAll]->(n) RETURN u, r, n

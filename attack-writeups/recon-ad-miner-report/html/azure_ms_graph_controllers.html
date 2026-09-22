@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+  <head>
+    <title>Dashboard</title>
+    <meta charset="utf-8" />
+
+    <script type="text/javascript" src="../js/ag-grid-community.js"></script>
+    <script type="text/javascript" src="../js/vis.min.js"></script>
+    <script type="text/javascript" src="../js/dagre.min.js"></script>
+    <script type="text/javascript" src="../js/webfont.js"></script>
+    <script type="text/javascript" src="../js/bootstrap.js"></script>
+
+    <script type="text/javascript" src="../js/jquery.min.js"></script>
+    <script type="text/javascript" src="../js/popper.min.js"></script>
+    <script type="text/javascript" src="../js/bootstrap4.js"></script>
+    <!-- without bootstrap 4, there is a bug on the main dashboard (the tables at the bottom of the cards can no longer be open), this black magic is beyond my powers.... -->
+
+    <link rel="stylesheet" type="text/css" href="../css/graph.css" />
+
+    <link rel="stylesheet" type="text/css" href="../css/mazars-icons.css" />
+    <link rel="stylesheet" type="text/css" href="../css/bootstrap-icons.css" />
+    <link rel="stylesheet" type="text/css" href="../css/bootstrap-icons.min.css" />
+    <link rel="stylesheet" type="text/css" href="../css/bootstrap.min.css" />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="../css/bootstrap_4.0.0.min.css"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="../css/bootstrap-extended.min.css"
+    />
+    <link rel="stylesheet" type="text/css" href="../css/bootstrap.css" />
+    <link rel="stylesheet" type="text/css" href="../css/sb-admin.css" />
+
+    <link rel="stylesheet" href="../css/font.css" />
+
+    <link rel="icon" href="../assets/favicon.png" type="image/x-icon" />
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" type="text/css" href="../css/custom.css" />
+    <link rel="stylesheet" type="text/css" href="../css/description.css" />
+  </head>
+
+  <body>
+    <header>
+      <nav
+        class="navbar navbar-expand-lg navbar-dark mb-3"
+        style="background-color: rgb(44, 62, 80)"
+      >
+        <div class="container-fluid">
+          <a class="navbar-brand" href="index.html" id="title">
+            <img src="../assets/hub.svg" class="mx-2" height="30" id="hub" />
+            AD Miner
+          </a>
+
+          <button
+            class="navbar-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#navbarColor01"
+            aria-controls="navbarColor01"
+            aria-expanded="false"
+            aria-label="Toggle navigation"
+          >
+            <span class="navbar-toggler-icon"></span>
+          </button>
+
+          <div class="collapse navbar-collapse" id="navbarColor01">
+            <ul class="navbar-nav me-auto" style="margin: auto">
+              <li class="nav-item" style="margin: auto">
+                <div class="ml-0 text-light" id="title_current_page">Controllers of MS Graph</div>
+              </li>
+
+              <li
+                class="nav-item ml-1"
+                style="margin: auto; display: none"
+                id="button_description"
+              >
+                <a
+                  class="btn btn-primary inline-block btn-circle btn-sm"
+                  data-bs-toggle="offcanvas"
+                  href="#offcanvasExample"
+                  role="button"
+                  aria-controls="offcanvasExample"
+                >
+                  <img src="../assets/info_white.svg" height="20" />
+                </a>
+              </li>
+
+              <li
+                class="nav-item"
+                style="margin: auto; display: none"
+                id="button_download"
+                onclick="onBtnExport()"
+                title="Download grid data as CSV"
+              >
+                <a
+                  class="btn inline-block btn-circle"
+                  role="button"
+                  style="color: white;"
+                  id="button_download_link"
+                >
+                  <i class="bi bi-download"></i>
+                </a>
+              </li>
+
+              <li
+                class="nav-item"
+                style="margin: auto; display: none"
+                id="button_parameter"
+              >
+                <a
+                  class="btn btn-primary inline-block btn-circle btn-sm"
+                  role="button"
+                  data-toggle="collapse"
+                  href="#collapseSettings"
+                  aria-expanded="false"
+                  aria-controls="collapseSettings"
+                >
+                  <img src="../assets/settings.svg" height="20" id="settings" />
+                </a>
+              </li>
+              <li
+                class="nav-item"
+                style="margin: auto; display: none"
+                id="button_path"
+              >
+                <a
+                  class="btn btn-primary inline-block btn-circle btn-sm"
+                  role="button"
+                  data-toggle="collapse"
+                  href="#collapseNetwork"
+                  aria-expanded="false"
+                  aria-controls="collapseNetwork"
+                  onclick="displayPathGraph(last_path)"
+                >
+                  <img
+                    src="../assets/path_white.svg"
+                    height="20"
+                    id="settings"
+                  />
+                </a>
+              </li>
+            </ul>
+
+            <form class="form-inline my-2 my-lg-0 d-sm-none d-lg-block d-none">
+              <ul class="navbar-nav">
+                <div
+                  class="list-group search-bar-list-group"
+                  id="search-bar-list-group"
+                  style="
+                    margin-right: 20px;
+                    position: relative;
+                    z-index: 9999999999999;
+                    display: none;
+                  "
+                >
+                  <input
+                    class="form-control me-sm-2"
+                    type="text"
+                    placeholder="Search Node"
+                    onKeyUp="searchNode(this.value)"
+                  />
+                </div>
+              </ul>
+            </form>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <div
+      class="offcanvas offcanvas-start"
+      tabindex="-1"
+      id="offcanvasExample"
+      aria-labelledby="offcanvasExampleLabel"
+    >
+      <div class="offcanvas-header">
+        <h3 class="offcanvas-title" id="offcanvasExampleLabel">Information</h3>
+        <button
+          type="button"
+          class="btn-close text-reset"
+          data-bs-dismiss="offcanvas"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="offcanvas-body">
+        <div>
+          <div id="description_part" style="visibility: hidden">
+            <div class="d-flex justify-content-left">
+              <h5>Description</h5>
+              <img
+                src="../assets/info.svg"
+                class="mx-2"
+                height="30"
+                id="settings"
+              />
+            </div>
+            <p
+              class="descriptionText"
+              style="font-weight: 400"
+              id="description_info"
+            >
+              Accounts with privileged access to Microsoft Graph
+            </p>
+            <br />
+          </div>
+
+          <div id="risk_part" style="visibility: hidden">
+            <div class="d-flex justify-content-left">
+              <h5>Risk</h5>
+              <img
+                src="../assets/warning.svg"
+                class="mx-2"
+                height="30"
+                id="settings"
+              />
+            </div>
+            <p
+              class="descriptionText"
+              style="font-weight: 400"
+              id="description_risk"
+            >
+              Malicious actors can create privileged rights on Microsoft Graph to obtain persistence
+            </p>
+            <br />
+          </div>
+
+          <div id="poa_part" style="visibility: hidden">
+            <div class="d-flex justify-content-left">
+              <h5>Point of Attention</h5>
+              <img
+                src="../assets/security.svg"
+                class="mx-2"
+                height="30"
+                id="settings"
+              />
+            </div>
+            <p
+              class="descriptionText"
+              style="font-weight: 400"
+              id="description_poa"
+            >
+              The CISA recommends checking Graph API permissions for threat actors as part of detecting post compromise residual access
+            </p>
+            <br />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="row"
+      style="margin-right: 15px !important; margin-left: 15px !important"
+    >
+<!-- <div id="wrapper"> -->
+
+<!-- <div><button id="clusterButton" class="btn btn-primary" onclick="clusterNodes()" style="display:none">Cluster nodes with >30 connections</button></div> -->
+
+<div id="hooker"></div>
+<!-- <div class="form-check form-switch" style="padding-left: 80px;">
+			<input type="checkbox" class="form-check-input" id="switchHideText" onchange="displayHideText(this)" checked>
+			<label class="form-check-label" for="switchHideText">Hide text</label>
+		</div> -->
+
+<div
+  class="collapse"
+  id="collapseSettings"
+  style="max-width: 60rem; margin: auto"
+>
+  <div class="card card-body border-primary">
+    <h5>Settings</h5>
+    <div class="row">
+      <div class="col">
+        <div
+          class="form-check form-switch"
+          style="padding-left: 80px"
+          id="switch_hide_node"
+        >
+          <input
+            type="checkbox"
+            class="form-check-input"
+            id="switchHideText"
+            onchange="displayHideNodes(this)"
+          />
+          <label class="form-check-label" for="switchHideText"
+            >Hide nodes</label
+          >
+        </div>
+        <div class="form-check form-switch" style="padding-left: 80px">
+          <input
+            type="checkbox"
+            class="form-check-input"
+            id="switchHideText"
+            onchange="displayHideEdges(this)"
+          />
+          <label class="form-check-label" for="switchHideText"
+            >Hide edges</label
+          >
+        </div>
+
+        <div class="form-check form-switch" style="padding-left: 80px">
+          <input
+            type="checkbox"
+            class="form-check-input"
+            id="switchHorizontalGraph"
+            onchange="horizontalGraph()"
+          />
+          <label class="form-check-label" for="switchHorizontalGraph"
+            >Graph layout</label
+          >
+        </div>
+      </div>
+
+      <div class="col">
+        <div>
+          <form>
+            <label for="cluster_threshold_range">Cluster Threshold</label>
+            <input
+              type="range"
+              name="cluster_threshold_range"
+              min="3"
+              max="200"
+              value="3"
+              oninput="this.form.cluster_threshold.value=this.value;"
+            />
+            <input
+              type="number"
+              id="cluster_threshold"
+              name="cluster_threshold"
+              min="3"
+              max="200"
+              value="3"
+              oninput="this.form.cluster_threshold_range.value=this.value;"
+            />
+            <button
+              class="refreshButton"
+              onclick="newThreshold(cluster_threshold.value)"
+            >
+              <i class="bi bi-arrow-clockwise"></i>
+            </button>
+            <div class="tooltips">
+              <i class="bi bi-info-circle tooltipicon"></i>
+              <span class="tooltiptext"
+                >Refresh graph according to the new cluster threshold. It may
+                take a few seconds !</span
+              >
+            </div>
+          </form>
+        </div>
+        <style>
+          .refreshButton {
+            border-radius: 5px;
+          }
+
+          .tooltips {
+            position: relative;
+            display: inline-block;
+          }
+
+          .tooltipicon {
+            width: 25px;
+            margin-left: 5px;
+          }
+
+          .tooltips .tooltiptext {
+            visibility: hidden;
+            width: 250px;
+            background-color: black;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 5px;
+            position: absolute;
+            z-index: 1;
+            top: 150%;
+            left: 0%;
+            margin-left: -112px;
+          }
+
+          .tooltips .tooltiptext::after {
+            content: '';
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: transparent transparent black transparent;
+          }
+
+          .tooltips:hover .tooltiptext {
+            visibility: visible;
+          }
+        </style>
+        <div>
+          Select end node :
+          <select class="form-select">
+            <option value="All End Nodes">All End Nodes</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading box -->
+<!-- <div class="box" id="loadingBox">
+		<div class="percent">
+			<svg>
+				<circle cx="70" cy="70" r="70"></circle>
+				<circle cx="70" cy="70" r="70"></circle>
+				<circle cx="70" cy="70" r="70" id="progressCircle"></circle>
+			</svg>
+				<div class="num">
+					<h2><span id="loadingPourcent">0</span><span id="pourcentPourcent">%</span></h2>
+				</div>
+			</div>
+		<h2 class="text">Loading</h2>
+		<p>Parsing <span id="nbNodes">X</span> nodes and <span id="nbEdges">Y</span> edges...</p>
+		<p>Estimated time remaining : <span id="eta"></span></p>
+	</div>
+	 -->
+<div
+  id="collapseNetwork"
+  class="modal"
+  style="position: relative; --bs-modal-width: -1"
+>
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        Selected path
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+          onclick="$('.modal')[0].style.display='';"
+        >
+          <span aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <div id="pathnetwork"></div>
+    </div>
+  </div>
+</div>
+<div id="mynetwork"></div>
+<script type="text/javascript">window.data_nodes = [];
+window.data_edges = [];</script>
+
+    </div>
+
+
+  </body>
+  <!-- graph.js en dernier pour que les variables soient bien définies-->
+  <script type="text/javascript" src="../js/icon.js"></script>
+  <script type="text/javascript" src="../js/graph.js"></script>
+  <script type="text/javascript" src="../js/custom.js"></script>
+</html>	

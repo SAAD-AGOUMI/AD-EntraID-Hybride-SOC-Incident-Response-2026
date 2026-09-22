@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+  <head>
+    <title>Dashboard</title>
+    <meta charset="utf-8" />
+
+    <script type="text/javascript" src="../js/ag-grid-community.js"></script>
+    <script type="text/javascript" src="../js/vis.min.js"></script>
+    <script type="text/javascript" src="../js/dagre.min.js"></script>
+    <script type="text/javascript" src="../js/webfont.js"></script>
+    <script type="text/javascript" src="../js/bootstrap.js"></script>
+
+    <script type="text/javascript" src="../js/jquery.min.js"></script>
+    <script type="text/javascript" src="../js/popper.min.js"></script>
+    <script type="text/javascript" src="../js/bootstrap4.js"></script>
+    <!-- without bootstrap 4, there is a bug on the main dashboard (the tables at the bottom of the cards can no longer be open), this black magic is beyond my powers.... -->
+
+    <link rel="stylesheet" type="text/css" href="../css/graph.css" />
+
+    <link rel="stylesheet" type="text/css" href="../css/mazars-icons.css" />
+    <link rel="stylesheet" type="text/css" href="../css/bootstrap-icons.css" />
+    <link rel="stylesheet" type="text/css" href="../css/bootstrap-icons.min.css" />
+    <link rel="stylesheet" type="text/css" href="../css/bootstrap.min.css" />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="../css/bootstrap_4.0.0.min.css"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="../css/bootstrap-extended.min.css"
+    />
+    <link rel="stylesheet" type="text/css" href="../css/bootstrap.css" />
+    <link rel="stylesheet" type="text/css" href="../css/sb-admin.css" />
+
+    <link rel="stylesheet" href="../css/font.css" />
+
+    <link rel="icon" href="../assets/favicon.png" type="image/x-icon" />
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" type="text/css" href="../css/custom.css" />
+    <link rel="stylesheet" type="text/css" href="../css/description.css" />
+  </head>
+
+  <body>
+    <header>
+      <nav
+        class="navbar navbar-expand-lg navbar-dark mb-3"
+        style="background-color: rgb(44, 62, 80)"
+      >
+        <div class="container-fluid">
+          <a class="navbar-brand" href="index.html" id="title">
+            <img src="../assets/hub.svg" class="mx-2" height="30" id="hub" />
+            AD Miner
+          </a>
+
+          <button
+            class="navbar-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#navbarColor01"
+            aria-controls="navbarColor01"
+            aria-expanded="false"
+            aria-label="Toggle navigation"
+          >
+            <span class="navbar-toggler-icon"></span>
+          </button>
+
+          <div class="collapse navbar-collapse" id="navbarColor01">
+            <ul class="navbar-nav me-auto" style="margin: auto">
+              <li class="nav-item" style="margin: auto">
+                <div class="ml-0 text-light" id="title_current_page">OUs with no object</div>
+              </li>
+
+              <li
+                class="nav-item ml-1"
+                style="margin: auto; display: none"
+                id="button_description"
+              >
+                <a
+                  class="btn btn-primary inline-block btn-circle btn-sm"
+                  data-bs-toggle="offcanvas"
+                  href="#offcanvasExample"
+                  role="button"
+                  aria-controls="offcanvasExample"
+                >
+                  <img src="../assets/info_white.svg" height="20" />
+                </a>
+              </li>
+
+              <li
+                class="nav-item"
+                style="margin: auto; display: none"
+                id="button_download"
+                onclick="onBtnExport()"
+                title="Download grid data as CSV"
+              >
+                <a
+                  class="btn inline-block btn-circle"
+                  role="button"
+                  style="color: white;"
+                  id="button_download_link"
+                >
+                  <i class="bi bi-download"></i>
+                </a>
+              </li>
+
+              <li
+                class="nav-item"
+                style="margin: auto; display: none"
+                id="button_parameter"
+              >
+                <a
+                  class="btn btn-primary inline-block btn-circle btn-sm"
+                  role="button"
+                  data-toggle="collapse"
+                  href="#collapseSettings"
+                  aria-expanded="false"
+                  aria-controls="collapseSettings"
+                >
+                  <img src="../assets/settings.svg" height="20" id="settings" />
+                </a>
+              </li>
+              <li
+                class="nav-item"
+                style="margin: auto; display: none"
+                id="button_path"
+              >
+                <a
+                  class="btn btn-primary inline-block btn-circle btn-sm"
+                  role="button"
+                  data-toggle="collapse"
+                  href="#collapseNetwork"
+                  aria-expanded="false"
+                  aria-controls="collapseNetwork"
+                  onclick="displayPathGraph(last_path)"
+                >
+                  <img
+                    src="../assets/path_white.svg"
+                    height="20"
+                    id="settings"
+                  />
+                </a>
+              </li>
+            </ul>
+
+            <form class="form-inline my-2 my-lg-0 d-sm-none d-lg-block d-none">
+              <ul class="navbar-nav">
+                <div
+                  class="list-group search-bar-list-group"
+                  id="search-bar-list-group"
+                  style="
+                    margin-right: 20px;
+                    position: relative;
+                    z-index: 9999999999999;
+                    display: none;
+                  "
+                >
+                  <input
+                    class="form-control me-sm-2"
+                    type="text"
+                    placeholder="Search Node"
+                    onKeyUp="searchNode(this.value)"
+                  />
+                </div>
+              </ul>
+            </form>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <div
+      class="offcanvas offcanvas-start"
+      tabindex="-1"
+      id="offcanvasExample"
+      aria-labelledby="offcanvasExampleLabel"
+    >
+      <div class="offcanvas-header">
+        <h3 class="offcanvas-title" id="offcanvasExampleLabel">Information</h3>
+        <button
+          type="button"
+          class="btn-close text-reset"
+          data-bs-dismiss="offcanvas"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="offcanvas-body">
+        <div>
+          <div id="description_part" style="visibility: hidden">
+            <div class="d-flex justify-content-left">
+              <h5>Description</h5>
+              <img
+                src="../assets/info.svg"
+                class="mx-2"
+                height="30"
+                id="settings"
+              />
+            </div>
+            <p
+              class="descriptionText"
+              style="font-weight: 400"
+              id="description_info"
+            >
+              These OUs do not contain any user, computer or any other group, which probably means they are not used anymore.
+            </p>
+            <br />
+          </div>
+
+          <div id="risk_part" style="visibility: hidden">
+            <div class="d-flex justify-content-left">
+              <h5>Risk</h5>
+              <img
+                src="../assets/warning.svg"
+                class="mx-2"
+                height="30"
+                id="settings"
+              />
+            </div>
+            <p
+              class="descriptionText"
+              style="font-weight: 400"
+              id="description_risk"
+            >
+              As unused OUs still retain their privilege but are less monitored, an attacker could exploit one of these to gain further access to the information system.
+            </p>
+            <br />
+          </div>
+
+          <div id="poa_part" style="visibility: hidden">
+            <div class="d-flex justify-content-left">
+              <h5>Point of Attention</h5>
+              <img
+                src="../assets/security.svg"
+                class="mx-2"
+                height="30"
+                id="settings"
+              />
+            </div>
+            <p
+              class="descriptionText"
+              style="font-weight: 400"
+              id="description_poa"
+            >
+              Review these OUs and check wether they should have lesser privilege or be deleted.
+            </p>
+            <br />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="row"
+      style="margin-right: 15px !important; margin-left: 15px !important"
+    >
+
+    <div class="card-body" style="height:90vh; min-height: 800px;">
+      <div id="grid-wrapper" class="gridWrapper">
+        <div id="myGrid" class="ag-theme-balham gridWrapper"></div>
+        <!--
+          Au choix pour les thèmes :
+            - ag-theme-alpine
+            - ag-theme-balham
+            - ag-theme-material
+        -->
+      </div>
+    </div>
+	  <script type="text/javascript" charset="utf-8">
+
+var bigGrid;
+// Adjust the size of columns depending on the number of columns, keeping a minimal width of 200px and adding a horizontal scroll if necessary
+function adjustSizeDependingOnNbOfColumns(params) {
+  if (document.getElementById('grid-wrapper').offsetWidth / params.columnApi.getColumns().length < 200) {
+    gridOptions.columnApi.autoSizeAllColumns();
+    bigGrid = true;
+  }
+  else {
+    params.api.sizeColumnsToFit({defaultMinWidth: 200,});
+    bigGrid = false;
+  }
+}
+
+function onBtnExport() {
+	/*
+	This function get the data of the grid, clears it of useless data and download it as a CSV file.
+	*/
+	var csvRawData = gridOptions.api.getDataAsCsv();
+	var csvData = csvRawData.replace(/<[^>]*>\s*/g, '');
+	const filename = 'data.csv';
+
+	const blob = new Blob([csvData], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    
+    const downloadLink = document.querySelector("#button_download_link");
+    downloadLink.href = url;
+    downloadLink.download = filename;
+}
+
+function sort_string(valueA, valueB){
+	if (valueA === valueB) {
+		return 0;
+	}
+	return (valueA > valueB) ? 1 : -1;
+}
+
+function sort_integer(valueA, valueB){
+	return valueA - valueB 
+}
+
+function customComparator(_valueA, _valueB, nodeA, nodeB) {
+	if (typeof _valueA === 'object'){
+		if (typeof _valueA.value === 'string'){
+			return sort_string(_valueA.value, _valueB.value)
+		}
+		return sort_integer(_valueA.value, _valueB.value)
+  	}
+	if (typeof _valueA === 'string'){
+		return sort_string(_valueA, _valueB)
+  	}
+	return sort_integer(_valueA, _valueB)
+}
+
+var columnDefs = [{
+                    field:"Empty Organizational Unit",
+                    cellRenderer: function(params) {
+                        if (typeof params.data[params.column.colId] === 'object') {
+                            if (params.data[params.column.colId].value == "0") {
+                                return params.data[params.column.colId].value;
+                            }
+                            if (params.data[params.column.colId].link == 'FALSE_LINK') {
+                                params.data[params.column.colId] = '<p>' + params.data[params.column.colId].value + '</p>';
+                                return params.data[params.column.colId];
+                            }
+                            if (params.data[params.column.colId].link != null) {
+                                if (params.data[params.column.colId].before_link != null) {
+                                    var prepend = params.data[params.column.colId].before_link;
+                                }
+                                else {
+                                    var prepend = "";
+                                }
+                                params.data[params.column.colId] = prepend + '<a onMouseOver="this.style.color=#99c3ff" onMouseOut="this.style.color=#000" href="' + params.data[params.column.colId].link + '">'+ params.data[params.column.colId].value + '</a>';
+                                return params.data[params.column.colId];
+                            }
+                            return params.data[params.column.colId];
+                        }
+                        else {
+                            return params.value;
+                        }
+                    },
+                },{
+                    field:"Full Reference",
+                    cellRenderer: function(params) {
+                        if (typeof params.data[params.column.colId] === 'object') {
+                            if (params.data[params.column.colId].value == "0") {
+                                return params.data[params.column.colId].value;
+                            }
+                            if (params.data[params.column.colId].link == 'FALSE_LINK') {
+                                params.data[params.column.colId] = '<p>' + params.data[params.column.colId].value + '</p>';
+                                return params.data[params.column.colId];
+                            }
+                            if (params.data[params.column.colId].link != null) {
+                                if (params.data[params.column.colId].before_link != null) {
+                                    var prepend = params.data[params.column.colId].before_link;
+                                }
+                                else {
+                                    var prepend = "";
+                                }
+                                params.data[params.column.colId] = prepend + '<a onMouseOver="this.style.color=#99c3ff" onMouseOut="this.style.color=#000" href="' + params.data[params.column.colId].link + '">'+ params.data[params.column.colId].value + '</a>';
+                                return params.data[params.column.colId];
+                            }
+                            return params.data[params.column.colId];
+                        }
+                        else {
+                            return params.value;
+                        }
+                    },
+                },];
+var rowData=[{'Empty Organizational Unit': '<i class="bi bi-building"></i>VALE@SEVENKINGDOMS.LOCAL', 'Full Reference': 'OU=VALE,DC=SEVENKINGDOMS,DC=LOCAL'}, {'Empty Organizational Unit': '<i class="bi bi-building"></i>RIVERLANDS@SEVENKINGDOMS.LOCAL', 'Full Reference': 'OU=RIVERLANDS,DC=SEVENKINGDOMS,DC=LOCAL'}, {'Empty Organizational Unit': '<i class="bi bi-building"></i>REACH@SEVENKINGDOMS.LOCAL', 'Full Reference': 'OU=REACH,DC=SEVENKINGDOMS,DC=LOCAL'}, {'Empty Organizational Unit': '<i class="bi bi-building"></i>IRONISLANDS@SEVENKINGDOMS.LOCAL', 'Full Reference': 'OU=IRONISLANDS,DC=SEVENKINGDOMS,DC=LOCAL'}, {'Empty Organizational Unit': '<i class="bi bi-building"></i>DORNE@SEVENKINGDOMS.LOCAL', 'Full Reference': 'OU=DORNE,DC=SEVENKINGDOMS,DC=LOCAL'}];
+
+
+var url = new URL(window.location.href);
+var parameter = url.searchParams.get("parameter");
+if (parameter != null) {
+	arrayData = display_computer(parameter);
+	rowData = arrayData[0];
+	columnDefs = arrayData[1];
+}
+
+
+function display_computer(parameter) {
+	var rowData2 = [];
+	for (var i=0; i<rowData.length; i++) {
+		const keys = Object.keys(rowData[i]);
+
+		if (window.location.href.includes('users_admin_of_computers')) { 
+			if (rowData[i][keys[0]] == parameter) {
+				for (var k=0; k<rowData[i][keys[1]].length; k++) {
+					var new_dico = {};
+					new_dico[parameter] = rowData[i][keys[1]][k];
+					new_dico['href_link']='';
+					rowData2.push(new_dico);
+				}
+			}
+		}
+		else if (window.location.href.includes('kerberoastables_SPN')) {
+			if (rowData[i][keys[0]] == parameter) {
+				var new_dico = {};
+				new_dico[parameter] = rowData[i][keys[1]];
+				new_dico['href_link']='';
+				rowData2.push(new_dico);
+			}
+		}
+		else if (window.location.href.includes('computers_with_administrators_details')) {
+			if (rowData[i]['Computer'] == parameter) {
+				var new_dico = {};
+				new_dico['Users'] = rowData[i]['Users'];
+				new_dico['Distinguished Name'] = rowData[i]['Distinguished Name'];
+				rowData2.push(new_dico);
+			}
+		}
+		else if (window.location.href.includes('users_rdp_access') || window.location.href.includes('computers_list_of_rdp_users')) {
+			
+			if (rowData[i][keys[0]].includes(parameter)) {
+				const startSubstring = "<p style='display: none;'>";
+				const endSubstring = "</p>";
+
+				const startIndex = rowData[i][keys[1]].indexOf(startSubstring) + startSubstring.length;
+				const endIndex = rowData[i][keys[1]].indexOf(endSubstring, startIndex);
+				data = JSON.parse(rowData[i][keys[1]].substring(startIndex, endIndex).replaceAll(`'`,`"`))
+				for (var j=0; j<data.length; j++) {
+					var new_dico = {};
+					new_dico[parameter] = data[j];
+					new_dico['href_link']='';
+					rowData2.push(new_dico);
+				}
+			}
+		}
+		else {
+			n = 2;
+			// In generic_formating.py, function formatGridValues3Columns
+			if (rowData[i][keys[0]] == parameter) {
+				data = JSON.parse(rowData[i][keys[n]]["value"].substring(91, rowData[i][keys[n]]["value"].length-4).replaceAll(`'`,`"`))
+				for (var j=0; j<data.length; j++) {
+					var new_dico = {};
+					new_dico[parameter] = data[j];
+					new_dico['href_link']='';
+					rowData2.push(new_dico);
+				}
+			}
+		}
+	}
+	if (window.location.href.includes('computers_with_administrators_details')) {
+		columnDefs2 = [{field: 'Users'},{field: 'Distinguished Name'}]
+	}
+	else {
+		columnDefs2 = [{field: parameter}];
+	}
+	return [rowData2, columnDefs2];
+}
+
+var url = new URL(window.location.href);
+var object = url.searchParams.get("object");
+if (object != null) {
+	arrayData = filterByObject(object);
+	rowData = arrayData[0];
+	columnDefs = arrayData[1];
+}
+
+function filterByObject(object) {
+	var rowData2 = [];
+	for (var i=0; i<rowData.length; i++) {
+		if (rowData[i]['TO CHANGE'].includes(object) && !rowData[i]['TO CHANGE'].includes('> ' + object + ' <')) {
+			new_dico = {object: '0'};
+			new_dico[object] = rowData[i]['TO CHANGE'].slice(rowData[i]['TO CHANGE'].indexOf('>')+2,-8);
+			rowData2.push(new_dico);
+		}
+	}
+	columnDefs2 = [{field: object}];
+	return [rowData2, columnDefs2];
+}
+
+// Grid options
+const gridOptions = {
+	columnDefs: columnDefs,
+	rowData: rowData,
+	defaultColDef: {resizable: true, filter: 'agTextColumnFilter', sortable: true, comparator: customComparator,},
+	suppressFieldDotNotation: true,
+	suppressHorizontalScroll: false,
+	animateRows: true,
+	pagination: true,
+	paginationPageSize: 100000,
+	enableCellTextSelection: true,
+	ensureDomOrder: true,
+	rowHeight: 38,
+	onGridReady: adjustSizeDependingOnNbOfColumns,
+	onGridSizeChanged: adjustSizeDependingOnNbOfColumns
+};
+
+
+// setup the grid after the page has finished loading
+document.addEventListener('DOMContentLoaded', function () {
+	var gridDiv = document.querySelector('#myGrid');
+	new agGrid.Grid(gridDiv, gridOptions);
+
+	// Adjust size of columns for large grids when scrolling horizontally
+	if (bigGrid) {
+		document.querySelector(".ag-body-horizontal-scroll-viewport").addEventListener("scroll", (event) => {
+			clearTimeout(window.scrollEndTimer)
+			window.scrollEndTimer = setTimeout((a) => {
+				gridOptions.columnApi.autoSizeAllColumns(); 
+			}, 100)
+		});
+	}
+});
+
+	  </script>
+
+
+    </div>
+
+
+  </body>
+  <!-- graph.js en dernier pour que les variables soient bien définies-->
+  <script type="text/javascript" src="../js/icon.js"></script>
+  <script type="text/javascript" src="../js/graph.js"></script>
+  <script type="text/javascript" src="../js/custom.js"></script>
+</html>	

@@ -1,0 +1,1 @@
+MATCH (u:User)-[r:GenericAll|WriteDacl|GenericWrite|Owns]->(n) RETURN u, r, n LIMIT 10

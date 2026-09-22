@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+  <head>
+    <title>Dashboard</title>
+    <meta charset="utf-8" />
+
+    <script type="text/javascript" src="../js/ag-grid-community.js"></script>
+    <script type="text/javascript" src="../js/vis.min.js"></script>
+    <script type="text/javascript" src="../js/dagre.min.js"></script>
+    <script type="text/javascript" src="../js/webfont.js"></script>
+    <script type="text/javascript" src="../js/bootstrap.js"></script>
+
+    <script type="text/javascript" src="../js/jquery.min.js"></script>
+    <script type="text/javascript" src="../js/popper.min.js"></script>
+    <script type="text/javascript" src="../js/bootstrap4.js"></script>
+    <!-- without bootstrap 4, there is a bug on the main dashboard (the tables at the bottom of the cards can no longer be open), this black magic is beyond my powers.... -->
+
+    <link rel="stylesheet" type="text/css" href="../css/graph.css" />
+
+    <link rel="stylesheet" type="text/css" href="../css/mazars-icons.css" />
+    <link rel="stylesheet" type="text/css" href="../css/bootstrap-icons.css" />
+    <link rel="stylesheet" type="text/css" href="../css/bootstrap-icons.min.css" />
+    <link rel="stylesheet" type="text/css" href="../css/bootstrap.min.css" />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="../css/bootstrap_4.0.0.min.css"
+    />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="../css/bootstrap-extended.min.css"
+    />
+    <link rel="stylesheet" type="text/css" href="../css/bootstrap.css" />
+    <link rel="stylesheet" type="text/css" href="../css/sb-admin.css" />
+
+    <link rel="stylesheet" href="../css/font.css" />
+
+    <link rel="icon" href="../assets/favicon.png" type="image/x-icon" />
+    <link rel="stylesheet" href="../css/style.css" />
+    <link rel="stylesheet" type="text/css" href="../css/custom.css" />
+    <link rel="stylesheet" type="text/css" href="../css/description.css" />
+  </head>
+
+  <body>
+    <header>
+      <nav
+        class="navbar navbar-expand-lg navbar-dark mb-3"
+        style="background-color: rgb(44, 62, 80)"
+      >
+        <div class="container-fluid">
+          <a class="navbar-brand" href="index.html" id="title">
+            <img src="../assets/hub.svg" class="mx-2" height="30" id="hub" />
+            AD Miner
+          </a>
+
+          <button
+            class="navbar-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#navbarColor01"
+            aria-controls="navbarColor01"
+            aria-expanded="false"
+            aria-label="Toggle navigation"
+          >
+            <span class="navbar-toggler-icon"></span>
+          </button>
+
+          <div class="collapse navbar-collapse" id="navbarColor01">
+            <ul class="navbar-nav me-auto" style="margin: auto">
+              <li class="nav-item" style="margin: auto">
+                <div class="ml-0 text-light" id="title_current_page">Objects to DA privileges</div>
+              </li>
+
+              <li
+                class="nav-item ml-1"
+                style="margin: auto; display: none"
+                id="button_description"
+              >
+                <a
+                  class="btn btn-primary inline-block btn-circle btn-sm"
+                  data-bs-toggle="offcanvas"
+                  href="#offcanvasExample"
+                  role="button"
+                  aria-controls="offcanvasExample"
+                >
+                  <img src="../assets/info_white.svg" height="20" />
+                </a>
+              </li>
+
+              <li
+                class="nav-item"
+                style="margin: auto; display: none"
+                id="button_download"
+                onclick="onBtnExport()"
+                title="Download grid data as CSV"
+              >
+                <a
+                  class="btn inline-block btn-circle"
+                  role="button"
+                  style="color: white;"
+                  id="button_download_link"
+                >
+                  <i class="bi bi-download"></i>
+                </a>
+              </li>
+
+              <li
+                class="nav-item"
+                style="margin: auto; display: none"
+                id="button_parameter"
+              >
+                <a
+                  class="btn btn-primary inline-block btn-circle btn-sm"
+                  role="button"
+                  data-toggle="collapse"
+                  href="#collapseSettings"
+                  aria-expanded="false"
+                  aria-controls="collapseSettings"
+                >
+                  <img src="../assets/settings.svg" height="20" id="settings" />
+                </a>
+              </li>
+              <li
+                class="nav-item"
+                style="margin: auto; display: none"
+                id="button_path"
+              >
+                <a
+                  class="btn btn-primary inline-block btn-circle btn-sm"
+                  role="button"
+                  data-toggle="collapse"
+                  href="#collapseNetwork"
+                  aria-expanded="false"
+                  aria-controls="collapseNetwork"
+                  onclick="displayPathGraph(last_path)"
+                >
+                  <img
+                    src="../assets/path_white.svg"
+                    height="20"
+                    id="settings"
+                  />
+                </a>
+              </li>
+            </ul>
+
+            <form class="form-inline my-2 my-lg-0 d-sm-none d-lg-block d-none">
+              <ul class="navbar-nav">
+                <div
+                  class="list-group search-bar-list-group"
+                  id="search-bar-list-group"
+                  style="
+                    margin-right: 20px;
+                    position: relative;
+                    z-index: 9999999999999;
+                    display: none;
+                  "
+                >
+                  <input
+                    class="form-control me-sm-2"
+                    type="text"
+                    placeholder="Search Node"
+                    onKeyUp="searchNode(this.value)"
+                  />
+                </div>
+              </ul>
+            </form>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <div
+      class="offcanvas offcanvas-start"
+      tabindex="-1"
+      id="offcanvasExample"
+      aria-labelledby="offcanvasExampleLabel"
+    >
+      <div class="offcanvas-header">
+        <h3 class="offcanvas-title" id="offcanvasExampleLabel">Information</h3>
+        <button
+          type="button"
+          class="btn-close text-reset"
+          data-bs-dismiss="offcanvas"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="offcanvas-body">
+        <div>
+          <div id="description_part" style="visibility: hidden">
+            <div class="d-flex justify-content-left">
+              <h5>Description</h5>
+              <img
+                src="../assets/info.svg"
+                class="mx-2"
+                height="30"
+                id="settings"
+              />
+            </div>
+            <p
+              class="descriptionText"
+              style="font-weight: 400"
+              id="description_info"
+            >
+              List of the main paths to become a domain administrator
+            </p>
+            <br />
+          </div>
+
+          <div id="risk_part" style="visibility: hidden">
+            <div class="d-flex justify-content-left">
+              <h5>Risk</h5>
+              <img
+                src="../assets/warning.svg"
+                class="mx-2"
+                height="30"
+                id="settings"
+              />
+            </div>
+            <p
+              class="descriptionText"
+              style="font-weight: 400"
+              id="description_risk"
+            >
+              This representation exposes the most common links to become domain administrator, which means the more likely to be used during an attack.
+            </p>
+            <br />
+          </div>
+
+          <div id="poa_part" style="visibility: hidden">
+            <div class="d-flex justify-content-left">
+              <h5>Point of Attention</h5>
+              <img
+                src="../assets/security.svg"
+                class="mx-2"
+                height="30"
+                id="settings"
+              />
+            </div>
+            <p
+              class="descriptionText"
+              style="font-weight: 400"
+              id="description_poa"
+            >
+              Tackling the most common paths is a good approach to limit the risk of a compromission as it removes most of the paths to domain administrator.
+            </p>
+            <br />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="row"
+      style="margin-right: 15px !important; margin-left: 15px !important"
+    >
+
+
+<div class="row">
+	<h3 style="margin-bottom: 30px;"> Main paths to Domain Admin</h3>
+</div>
+
+
+<div class="row" id="mainRow"></div>
+
+</style>
+
+<script type="text/javascript" charset="utf-8">
+
+
+function mainFunction(){
+
+	for (value in mainCompromisePaths)
+	{	
+
+		if (mainCompromisePaths[value]/numberPaths <= 0.05) {
+			var color = "bg-success";
+		}
+		else if (mainCompromisePaths[value]/numberPaths > 0.05 && mainCompromisePaths[value]/numberPaths <= 0.1) {
+			var color = "bg-info";
+		}
+		else if (mainCompromisePaths[value]/numberPaths > 0.1 && mainCompromisePaths[value]/numberPaths <= 0.15) {
+			var color = "bg-warning";
+		}
+		else {
+			var color = "bg-danger";
+		}
+		document.getElementById("mainRow").innerHTML += `
+		<div class='col-6'>
+			<div class='progress'>
+				<div 
+				class='progress-bar ${color}' 
+				role='progressbar' 
+				style='width: ${100*(mainCompromisePaths[value]/numberPaths)}%' 
+				aria-valuenow='${mainCompromisePaths[value]}' 
+				aria-valuemin='0' 
+				aria-valuemax='${numberPaths}'>
+				</div>
+			</div>
+			<div style="
+			text-align: right;
+			margin-top: -19px;
+			margin-right: 5px;
+			font-size: 14px;
+			color: rgb(80,80,80);">
+				${mainCompromisePaths[value]} paths - ${Math.round(100 * (mainCompromisePaths[value]/numberPaths))} %
+			</div>
+		</div>
+		<div class='col-6'>
+			<p>${value}</p>
+		</div>`;
+	}
+
+}
+
+
+const mainCompromisePaths = {'SEVENKINGDOMS.LOCAL ⮕ Contains ⮕ USERS@SEVENKINGDOMS.LOCAL': 44, 'STANNIS.BARATHEON@SEVENKINGDOMS.LOCAL ⮕ GenericAll ⮕ KINGSLANDING.SEVENKINGDOMS.LOCAL': 20, 'KINGSLANDING.SEVENKINGDOMS.LOCAL ⮕ DCSync ⮕ SEVENKINGDOMS.LOCAL': 19, 'WINTERFELL.NORTH.SEVENKINGDOMS.LOCAL ⮕ CoerceToTGT ⮕ NORTH.SEVENKINGDOMS.LOCAL': 18, 'KINGSGUARD@SEVENKINGDOMS.LOCAL ⮕ GenericAll ⮕ STANNIS.BARATHEON@SEVENKINGDOMS.LOCAL': 18, 'USERS@SEVENKINGDOMS.LOCAL ⮕ Contains ⮕ ENTERPRISE ADMINS@SEVENKINGDOMS.LOCAL': 18, 'DRAGONSTONE@SEVENKINGDOMS.LOCAL ⮕ WriteOwner ⮕ KINGSGUARD@SEVENKINGDOMS.LOCAL': 16, 'SMALL COUNCIL@SEVENKINGDOMS.LOCAL ⮕ AddMember ⮕ DRAGONSTONE@SEVENKINGDOMS.LOCAL': 14, 'NORTH.SEVENKINGDOMS.LOCAL ⮕ SameForestTrust ⮕ SEVENKINGDOMS.LOCAL': 13, 'NORTH.SEVENKINGDOMS.LOCAL ⮕ Contains ⮕ USERS@NORTH.SEVENKINGDOMS.LOCAL': 12, 'TYRON.LANNISTER@SEVENKINGDOMS.LOCAL ⮕ AddSelf ⮕ SMALL COUNCIL@SEVENKINGDOMS.LOCAL': 8, 'PGMSA_2002DAF3$@SEVENKINGDOMS.LOCAL ⮕ GenericWrite ⮕ LORD.VARYS@SEVENKINGDOMS.LOCAL': 7, 'VAGRANT-2025.SEVENKINGDOMS.LOCAL ⮕ ReadGMSAPassword ⮕ PGMSA_2002DAF3$@SEVENKINGDOMS.LOCAL': 5, 'KINGSLANDING.SEVENKINGDOMS.LOCAL ⮕ CoerceToTGT ⮕ SEVENKINGDOMS.LOCAL': 5, 'LORD.VARYS@SEVENKINGDOMS.LOCAL ⮕ GenericAll ⮕ ENTERPRISE ADMINS@SEVENKINGDOMS.LOCAL': 5, 'JOFFREY.BARATHEON@SEVENKINGDOMS.LOCAL ⮕ WriteDacl ⮕ TYRON.LANNISTER@SEVENKINGDOMS.LOCAL': 4, 'DC03.SEVENKINGDOMS.LOCAL ⮕ DCSync ⮕ SEVENKINGDOMS.LOCAL': 3, 'DOMAIN CONTROLLERS@NORTH.SEVENKINGDOMS.LOCAL ⮕ Contains ⮕ WINTERFELL.NORTH.SEVENKINGDOMS.LOCAL': 2, 'STARKWALLPAPER@NORTH.SEVENKINGDOMS.LOCAL ⮕ GPLink ⮕ NORTH.SEVENKINGDOMS.LOCAL': 2, 'CASTELBLACK.NORTH.SEVENKINGDOMS.LOCAL ⮕ AllowedToDelegate ⮕ WINTERFELL.NORTH.SEVENKINGDOMS.LOCAL': 2, 'VAGRANT-2025.SEVENKINGDOMS.LOCAL ⮕ DCSync ⮕ SEVENKINGDOMS.LOCAL': 2, 'JAIME.LANNISTER@SEVENKINGDOMS.LOCAL ⮕ GenericWrite ⮕ JOFFREY.BARATHEON@SEVENKINGDOMS.LOCAL': 2, 'CROWNLANDS@SEVENKINGDOMS.LOCAL ⮕ Contains ⮕ LORD.VARYS@SEVENKINGDOMS.LOCAL': 2, 'DOMAIN ADMINS@NORTH.SEVENKINGDOMS.LOCAL ⮕ WriteOwner ⮕ NORTH.SEVENKINGDOMS.LOCAL': 1, 'DOMAIN CONTROLLERS@SEVENKINGDOMS.LOCAL ⮕ Contains ⮕ DC03.SEVENKINGDOMS.LOCAL': 1, 'DOMAIN CONTROLLERS@SEVENKINGDOMS.LOCAL ⮕ Contains ⮕ VAGRANT-2025.SEVENKINGDOMS.LOCAL': 1};
+
+const numberPaths = 76;
+
+mainFunction();
+
+</script>
+    </div>
+
+
+  </body>
+  <!-- graph.js en dernier pour que les variables soient bien définies-->
+  <script type="text/javascript" src="../js/icon.js"></script>
+  <script type="text/javascript" src="../js/graph.js"></script>
+  <script type="text/javascript" src="../js/custom.js"></script>
+</html>	

@@ -1,0 +1,1 @@
+MATCH p = shortestPath((u:User)-[*1..]->(g:Group {name:"DOMAIN ADMINS@SEVENKINGDOMS.LOCAL"})) RETURN p

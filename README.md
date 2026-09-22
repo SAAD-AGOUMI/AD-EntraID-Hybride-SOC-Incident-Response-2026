@@ -61,20 +61,20 @@ Ton PFE démarre **le 1er avril 2027**. Les candidatures ouvrent en général **
 
 ```
                         ┌─────────────────────────────┐
-                        │   Poste attaquant (Kali)     │
+                        │  Poste attaquant (WSL2)      │
                         │   + Agent IA copilote        │
                         └──────────────┬───────────────┘
                                        │
                  ┌─────────────────────┴─────────────────────┐
                  │                                            │
-        ┌────────▼─────────┐   Azure AD Connect    ┌──────────▼──────────┐
-        │  AD on-prem       │◄─────── sync ────────►│   Entra ID           │
-        │  (GOAD-Light)     │                       │  (tenant gratuit,    │
-        │  DC01, DC02...    │                       │   essai Azure)       │
-        │  + 1 DC Win 2025  │                       │  Conditional Access, │
-        │  (non patché,     │                       │  App Registrations,  │
-        │   pour dMSA)      │                       │  hybrid join         │
-        └─────────┬─────────┘                       └──────────────────────┘
+        ┌────────▼─────────┐   Microsoft Entra Connect ┌──────▼──────────────┐
+        │  AD on-prem       │◄─────── sync ────────────►│   Entra ID           │
+        │  (GOAD-Light)     │                            │  (tenant gratuit,    │
+        │  DC01, DC02...    │                            │   essai Azure)       │
+        │  + 1 DC Win 2025  │                            │  Conditional Access, │
+        │  (non patché,     │                            │  App Registrations,  │
+        │   pour dMSA)      │                            │  hybrid join         │
+        └─────────┬─────────┘                            └──────────────────────┘
                   │ Sysmon + agent Wazuh
         ┌─────────▼─────────┐
         │  SIEM (Wazuh)     │
@@ -85,9 +85,11 @@ Ton PFE démarre **le 1er avril 2027**. Les candidatures ouvrent en général **
 
 **Où ça tourne :** sur ta machine via des VM (VMware Workstation Pro). GOAD-Light se déploie avec Vagrant + Ansible.
 
-**Prérequis logiciels (poste attaquant) :**
-- Kali Linux (ou un Debian/Ubuntu avec les outils installés à la main)
-- Docker (pour BloodHound CE / Neo4j)
+**Poste attaquant : WSL2 (Debian), pas de VM Kali dédiée.** Choix assumé plutôt qu'un oubli : l'hôte ne dispose que de 4 cœurs / 8 threads, déjà partagés entre les VM GOAD-Light et la VM Wazuh — ajouter une VM Kali supplémentaire aurait mis le CPU en survente sans réel bénéfice, alors que WSL2 offre un environnement Linux complet avec accès réseau natif vers VMnet2. Les mêmes outils (NetExec, Impacket, BloodHound CE en Docker, etc.) y sont installés directement, sans overhead de virtualisation supplémentaire.
+
+**Prérequis logiciels (poste attaquant, WSL2) :**
+- WSL2 (Debian) avec les outils offensifs installés nativement (NetExec, Impacket, `ldap-utils`...)
+- Docker Desktop (pour BloodHound CE / Neo4j / Postgres, exécutés en conteneurs)
 - Python 3.11+
 - Une clé API LLM (Claude, via `anthropic` en Python) pour l'agent
 
@@ -120,9 +122,9 @@ Ton PFE démarre **le 1er avril 2027**. Les candidatures ouvrent en général **
 
 **Étapes :**
 1. Déployer **Wazuh** (gratuit, open-source, installation "All-In-One") sur une VM Ubuntu Server dédiée, hors GOAD.
-2. Installer l'agent Wazuh + **Sysmon** (config **Olaf Hartong — sysmon-modular**, structurée par technique MITRE ATT&CK) — pour l'instant sur **DC01 uniquement**, pour valider toute la chaîne de bout en bout avant d'étendre aux autres machines (DC02, DC03, SRV02) si le besoin s'en fait sentir pour un module donné.
+2. Installer l'agent Wazuh + **Sysmon** (config **Olaf Hartong — sysmon-modular**, structurée par technique MITRE ATT&CK) — d'abord validé de bout en bout sur **DC01 seul**, puis étendu aux trois autres machines du lab (**DC02, SRV02, DC03**) une fois la chaîne confirmée fonctionnelle, plutôt que d'attendre un besoin module par module (les modules 4, 5 et 7 touchant plusieurs machines à la fois, et DC03 en ayant de toute façon besoin pour le module 6).
 3. Vérifier que les logs remontent bien : Event IDs de sécurité Windows (4624, 4625, 4768, 4769...), Sysmon (process creation, network connections).
-4. Vérifier dans le dashboard Wazuh (Threat Hunting) que les groupes de règles Sysmon (`sysmon`, `sysmon_eid1_detections`) apparaissent bien pour l'agent concerné.
+4. Vérifier dans le dashboard Wazuh (Threat Hunting) que les groupes de règles Sysmon (`sysmon`, `sysmon_eid1_detections`) apparaissent bien pour chaque agent.
 
 **Outils :** Wazuh, Sysmon (Sysinternals).
 
@@ -137,13 +139,13 @@ Ton PFE démarre **le 1er avril 2027**. Les candidatures ouvrent en général **
 **Étapes :**
 1. Énumération réseau et services : **NetExec** (`nxc`, le successeur de CrackMapExec) pour le smb/ldap/winrm spraying et l'énumération.
 2. Collecte du graphe : **SharpHound / BloodHound CE** (nouveau moteur graphe) → base **Neo4j**.
-3. Écrire tes **propres requêtes Cypher** (pas seulement les pré-faites) pour identifier : comptes kerberoastables, chemins vers Tier0, ACL dangereuses, templates ADCS. Ces requêtes te resserviront directement comme « tools » de l'agent.
+3. Écrire tes **propres requêtes Cypher** (pas seulement les pré-faites) pour identifier : comptes kerberoastables, chemins vers Tier0, ACL dangereuses. Ces requêtes te resserviront directement comme « tools » de l'agent. Le lab ne dispose pas encore d'un rôle ADCS — son installation, avec des templates volontairement vulnérables, est un prérequis du module 4.
 4. Optionnel : **AD Miner** pour un rapport d'audit automatisé de chemins.
 5. Vérifie dans Wazuh à quoi ressemble (ou ne ressemble pas) cette phase de reconnaissance côté logs — beaucoup de reconnaissance passe inaperçue, c'est un constat à documenter aussi.
 
 **Outils :** NetExec, BloodHound CE, Neo4j, AD Miner, Impacket, Wazuh.
 
-**Livrable :** `attack-writeups/03-recon.md` + `agent/queries/*.cypher`.
+**Livrable :** `attack-writeups/recon.md` + `agent/queries/*.cypher`.
 
 ---
 
