@@ -68,7 +68,7 @@ Déploiement de **Wazuh** (indexer + manager + dashboard, all-in-one) sur une VM
 → Détails et procédure de reconstruction : [`siem/setup.md`](siem/setup.md)
 
 ### ✅ Module 3 — Reconnaissance moderne
-Cartographie complète du lab : découverte réseau (`nmap`), énumération SMB/LDAP (`NetExec`, `ldapsearch`), collecte **BloodHound CE**, requêtes **Cypher** personnalisées, et audit automatisé (**AD Miner**). Finding majeur : un compte de service Microsoft Entra Connect dispose de droits **DCSync complets** sur les deux domaines de la forêt. La phase inclut aussi une analyse de ce que cette reconnaissance laisse (ou non) comme trace côté SIEM.
+Cartographie complète du lab : découverte réseau (`nmap`), énumération SMB/LDAP (`NetExec`, `ldapsearch`), collecte **BloodHound CE**, requêtes **Cypher** personnalisées, et audit automatisé (**AD Miner**). Finding majeur : un compte de service Microsoft Entra Connect dispose de droits **DCSync complets** sur les deux domaines de la forêt. La phase inclut aussi une analyse de ce que cette reconnaissance laisse (ou non) comme trace côté SIEM, avec un triage détaillé des alertes remontées (cadre 5W, verdict, justification d'escalade et recommandations).
 → Writeup complet : [`attack-writeups/recon.md`](attack-writeups/recon.md)
 
 ### 🔶 Module 4 — ADCS, de ESC1 à ESC16 (en cours)

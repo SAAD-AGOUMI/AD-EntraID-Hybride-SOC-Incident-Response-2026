@@ -205,6 +205,88 @@ Toutes les commandes des sections 1 à 3 relancées à l'identique, après confi
 
 ---
 
+### 8.3 Triage des alertes
+
+Pour chaque type d'alerte remonté lors de la reconnaissance rejouée (§8.2), triage effectué comme le ferait un analyste L1 découvrant ces alertes sans connaître à l'avance qu'il s'agit d'un test contrôlé — en appliquant le cadre des **5W** (Who, What, When, Where, Why) avant de trancher.
+
+---
+
+#### Alerte 1 — Règle `92652`, `ANONYMOUS LOGON`
+
+- **Who (qui)** : session anonyme (`ANONYMOUS LOGON`), aucune identité authentifiée réelle.
+- **What (quoi)** : connexion SMB réussie sans identifiants, suivie d'une énumération SAMR des comptes locaux/domaine.
+- **When (quand)** : 22 septembre, 20:42, en rafale sur quelques secondes — cohérent avec un outil automatisé, pas une frappe humaine.
+- **Where (où)** : cible KINGSLANDING/DC01 (192.168.56.10), source `192.168.56.1` (interface hôte-only VMnet2).
+- **Why (pourquoi, côté attaquant présumé)** : reconnaissance active — collecter la liste des comptes du domaine sans avoir besoin d'identifiants au préalable, première étape classique avant de cibler un compte précis.
+
+**Verdict** : **Vrai positif.** Une énumération anonyme réussie n'est jamais un comportement légitime en usage normal — même un outil d'administration interne s'authentifie.
+
+**Pourquoi une escalade** : un `ANONYMOUS LOGON` suivi d'énumération est une signature de reconnaissance pré-attaque documentée (T1087 — Account Discovery) ; si elle passe inaperçue, l'attaquant obtient gratuitement la liste des cibles pour l'étape suivante (brute-force, password spraying). Le coût de l'ignorer est disproportionné par rapport au coût de vérifier.
+
+**Action immédiate** : investiguer l'IP source (`192.168.56.1`), confirmer s'il s'agit d'un hôte légitime du réseau ou d'un point d'entrée externe ; vérifier si d'autres tentatives de connexion (authentifiées cette fois) suivent dans les minutes suivantes depuis la même source.
+
+**Recommandation (remédiation)** : désactiver l'énumération SAMR anonyme sur les DC concernés si aucun usage métier ne la justifie (clé de registre `RestrictAnonymous`/`RestrictAnonymousSAM`) — corrige la cause, pas seulement le symptôme.
+
+---
+
+#### Alerte 2 — Règle `92652`, `samwell.tarly` (NTLM)
+
+- **Who** : `samwell.tarly`, compte de domaine valide (`north.sevenkingdoms.local`).
+- **What** : authentification NTLM réussie, classée par la règle comme "possible pass-the-hash attack".
+- **When** : 22 septembre, 20:42, juste après l'alerte 1 — cohérent avec un enchaînement outil de recon → authentification avec un credential fraîchement trouvé.
+- **Where** : cible KINGSLANDING/DC01, même source `192.168.56.1`.
+- **Why** : authentification légitime avec un mot de passe connu (`Heartsbane`), pas un hash rejoué — mais la règle Wazuh ne peut pas faire cette distinction à partir du seul protocole NTLM utilisé.
+
+**Verdict** : **Faux positif de nommage**, pas une fausse alerte au sens strict. Le signal capté (NTLM plutôt que Kerberos) est réel et mérite d'être noté, mais le libellé "pass-the-hash" présume une technique qui n'a pas été utilisée ici.
+
+**Pourquoi pas d'escalade** : aucune preuve d'un hash volé/rejoué (pas d'`Overpass-the-Hash`, pas de `mimikatz` détecté en amont sur une autre machine) — le contexte (recon puis authentification avec le même compte trouvé en clair) explique entièrement l'événement sans hypothèse aggravante.
+
+**Action immédiate** : clôturer sans escalade.
+
+**Recommandation** : signaler à l'équipe detection engineering que le libellé de la règle `92652` gagnerait à être reformulé ("NTLM auth detected" plutôt que "possible pass-the-hash") pour ne pas saturer les analystes de faux signaux d'alerte critique — un point de calibration de règle, pas un incident.
+
+---
+
+#### Alerte 3 — Règle `92110`, activité WinRM
+
+- **Who** : `NT AUTHORITY\SYSTEM` (processus noyau, connexion reçue avant toute authentification applicative).
+- **What** : connexion réseau détectée vers le port 5985 (WinRM), technique MITRE **T1021.006** (Windows Remote Management).
+- **When** : 22 septembre, 20:42:02, isolée (une seule occurrence dans la fenêtre observée).
+- **Where** : cible DC01 (192.168.56.10), source `192.168.56.1`.
+- **Why** : sonde de port dans le cadre du scan `nmap -p-` déjà documenté en §1 — pas une tentative de session WinRM réellement établie.
+
+**Verdict** : **Faux positif** dans ce contexte précis (source interne connue), mais le type de signal reste légitime à surveiller en général.
+
+**Pourquoi pas d'escalade** : la source (`192.168.56.1`) correspond à l'hôte du lab lui-même, pas à une IP externe inconnue ; aucune session WinRM authentifiée n'a suivi.
+
+**Action immédiate** : clôturer.
+
+**Recommandation** : si cette IP se répète fréquemment dans un contexte réel de production, envisager une règle de suppression/allowlist pour éviter le bruit — mais **ne pas la mettre en place ici**, dans un lab, où l'objectif est justement d'observer ce trafic.
+
+---
+
+#### Alerte 4 — Rafale `60106`/`60137` (Logon Success / Logoff)
+
+- **Who** : plusieurs comptes (dont `samwell.tarly`), sessions authentifiées classiques.
+- **What** : connexions et déconnexions SMB en volume (EventID 4624/4634).
+- **When** : dispersées sur toute la fenêtre de 4 minutes, en rafale.
+- **Where** : DC01, DC02, SRV02, DC03 selon la commande NetExec exécutée à chaque fois.
+- **Why** : conséquence mécanique des commandes `nxc smb` lancées contre les 4 machines à la suite (§2 et §3) — chaque authentification SMB génère un cycle logon/logoff.
+
+**Verdict** : **Bruit attendu**, pas une alerte à traiter isolément.
+
+**Pourquoi pas d'escalade individuelle** : le volume s'explique entièrement par le contexte déjà identifié dans les alertes 1 et 2 — les traiter séparément dupliquerait l'investigation sans apporter d'information nouvelle.
+
+**Action immédiate** : aucune action isolée.
+
+**Recommandation** : dans un vrai SOC, ce type de volume mériterait une règle de corrélation (ex. "plus de N logons SMB depuis la même source en moins de X secondes") plutôt que de laisser un analyste ouvrir un cas par événement — un exemple concret de pourquoi la corrélation d'alertes réduit la charge de triage.
+
+---
+
+**Constat de triage global** : sur 43 événements en 4 minutes, une seule alerte (`ANONYMOUS LOGON`) justifie une escalade réelle. Les trois autres catégories, bien que déclenchées, se résolvent par le contexte déjà documenté dans le writeup lui-même — exactement le réflexe qu'un analyste L1 doit développer : ne pas traiter chaque ligne du dashboard comme un incident isolé, mais reconstruire le fil narratif qui relie plusieurs alertes entre elles avant de décider où investir du temps d'investigation.
+
+---
+
 ## Récapitulatif des findings
 
 | Finding | Sévérité | Module concerné |
