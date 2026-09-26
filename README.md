@@ -10,6 +10,8 @@ Ce projet construit un lab **Active Directory hybride** (on-premise + Microsoft 
 
 L'objectif n'est pas de collecter des writeups offensifs isolés : chaque technique suit le même triptyque **attaque → correctif → détection instrumentée**, avec une preuve concrète (alerte SIEM réelle, Event ID, règle MITRE ATT&CK) à l'appui. C'est ce qui distingue ce projet d'un simple lab de pentest — il est pensé pour un profil qui comprend l'attaque de l'intérieur au service de la défense.
 
+Chaque writeup suit le même schéma en trois temps : **attaque → détection instrumentée → triage** — ce dernier volet reproduit le raisonnement d'un analyste SOC L1 découvrant l'alerte sans connaître le contexte (cadre 5W, verdict, justification d'escalade), pour ne pas rester uniquement sur le versant construction/exploitation.
+
 **Statut : projet en cours de construction.** Ce README est mis à jour au fil de l'avancement — voir la section [Avancement](#avancement) ci-dessous pour l'état exact à ce jour.
 
 ---
