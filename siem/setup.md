@@ -23,7 +23,7 @@ wazuh-manager (VM Ubuntu dédiée, 192.168.56.40)
 
 Le manager est **hors GOAD-Light**, sur son propre segment (même réseau VMnet2 que les DC, mais VM indépendante) — pas de dépendance Docker/WSL2, pour éviter les problèmes réseau déjà rencontrés avec la VM CONNECTOR (Entra Connect).
 
-**Les 4 machines du lab sont toutes instrumentées** : validation initiale sur DC01 seul, puis extension à DC02, SRV02 et DC03 une fois la chaîne confirmée fonctionnelle — plutôt que d'attendre un besoin module par module, les modules d'attaque suivants touchant plusieurs machines à la fois (et DC03 en ayant de toute façon besoin pour le module BadSuccessor).
+**Les 4 machines du lab sont toutes instrumentées** : validation initiale sur DC01 seul, puis extension à DC02, SRV02 et DC03 une fois la chaîne confirmée fonctionnelle — plutôt que d'attendre un besoin module par module, les modules suivants touchant plusieurs machines à la fois (et DC03 en ayant de toute façon besoin pour le module BadSuccessor).
 
 ---
 
@@ -216,6 +216,6 @@ La chaîne complète **Sysmon (Olaf Hartong) → agent Wazuh → manager → das
 - ✅ Manager Wazuh opérationnel (all-in-one), démarrage automatique au boot.
 - ✅ Agent + Sysmon opérationnels sur **DC01, DC02, SRV02 et DC03**, remontée confirmée dans le dashboard pour les 4.
 - ✅ DC03 instrumentée sans jamais exposer la machine à Internet (transfert manuel des fichiers).
-- ⬜ Règles de détection personnalisées (`local_rules.xml`) : pas encore nécessaires, seront écrites au fil des modules d'attaque (à partir du module 4 — ADCS) quand une technique n'a pas d'alerte par défaut dans le ruleset standard.
+- ⬜ Règles de détection personnalisées (`local_rules.xml`) : pas encore nécessaires, seront écrites au fil des cas d'incident suivants (à partir du module 4 — ADCS) quand une technique n'a pas d'alerte par défaut dans le ruleset standard.
 
 Snapshots VMware pris à chaque étape stable : `clean-ubuntu-22.04-pre-wazuh-install`, `wazuh-installed-working` (VM manager), `dc01-wazuh-agent-installed`, `dc03-win2025-unpatched-1742-wazuh-sysmon-active`.
